@@ -3,6 +3,7 @@ from tkinter import messagebox
 from datetime import datetime
 from tkinter import ttk
 
+
 import csv
 # database #
 from db_maintenance import *
@@ -17,17 +18,26 @@ GUI = Tk()
 GUI.title('Customer Service Management System')
 GUI.geometry('1000x500+50+50')
 ####FONT#####
-FONT1 = ('Angsana New',20)
-FONT2 = ('Angsana New',15)
+FONT1 = ('Angsana New',12)
+FONT2 = ('Angsana New',12)
 
 # add tab
+ #style
+#s = ttk.Style()
+#s.theme_create('MyStyle',parent='alt',settings={
+    #'TNotebook.Tab':{'configure':{'padding':[10, 10],'font':(None,11)}}
+#})
+#s.theme_use('MyStyle')
+
 Tab = ttk.Notebook(GUI)
 T1 = Frame(Tab)
 T2 = Frame(Tab)
 T3 = Frame(Tab)
+T4 = Frame(Tab)
 Tab.add(T1,text='Service Order')
 Tab.add(T2,text='Service History')
-Tab.add(T3,text='Summary')
+Tab.add(T3,text='Approve Service')
+Tab.add(T4,text='Service Completed')
 Tab.pack(fill=BOTH,expand=1)
 
 
@@ -107,7 +117,7 @@ B.place(x=200,y=350)
 
 ##tap2
 header = ['System ID','Contactname','Sitename','System','Description','Serial','Phonenumber','Status']
-headerwidth = [100,150,150,150,200,100,100,]
+headerwidth = [100,150,150,150,200,100,100,100]
 
 mtworkorderlist = ttk.Treeview(T2,columns=header,show='headings',height=10)
 mtworkorderlist.pack()
@@ -126,7 +136,8 @@ for h,w in zip(header,headerwidth):
 def update_table():
     #clear data
     mtworkorderlist.delete(*mtworkorderlist.get_children())
-    data = view_caseorder()
+    # data = view_caseorder() EP1 ดึงข้อมูลทั้งหมด
+    data = view_caseorder_status(status='new') # ขั้นตอนนี้ สร้างจาก EP3 อัพเดทข้อมูลเฉพาะที่ เป็นืstatus new
     for d in data:
         d= list(d)
         del d[0]
@@ -266,7 +277,98 @@ def delete_mtworkorder(event=None):
 # assign function to button delete for Mac OS 
 mtworkorderlist.bind('<Return>',delete_mtworkorder) 
 
+# Right click menu
+def approved():
+    selected = mtworkorderlist.selection()
+    output = mtworkorderlist.item(selected)
+    tisd = output['values'][0]
+    # print('Approved:',tisd)
+    update_caseorder(tisd,'status','Approved')
+    update_table()
+    update_table_approve()# update table ที่ approve แล้ว
+
+approved_menu = Menu(GUI,tearoff=0)
+approved_menu.add_command(label='Approved',command=approved)
+approved_menu.add_command(label='Delete',command=delete_mtworkorder)
+
+#futher pop up macos
+def popup(event):
+    approved_menu.post(event.x_root,event.y_root)
+
+mtworkorderlist.bind('<Button-2>',popup)   #macOS การเปิด pop up menu ด้วยการคลิกขวา 
+
+# tap3 
+class WorkorderList(ttk.Treeview):
+    def __init__(self,GUI,):
+        header = ['System ID','Contactname','Sitename','System','Description','Serial','Phonenumber','Status']
+        headerwidth = [100,150,150,150,200,100,100,100]
+        ttk.Treeview.__init__(self,GUI,columns=header,show='headings',height=10)
+        for h,w in zip(header,headerwidth):
+            self.heading(h,text=h)
+            self.column(h,width=w,anchor='center')
+    
+    #insert data to table
+    def insert_data(self,values):
+        self.insert('','end',values=values)
+
+
+#Table of Approve Service
+L = Label(T3,text='Appove Service',font=FONT1)
+L.pack()
+
+approved_wlist = WorkorderList(T3)
+approved_wlist.pack()
+
+# update_table + name of table = function for update that table. 
+def update_table_approve():
+    #clear data
+    approved_wlist.delete(*approved_wlist.get_children()) #get_children() คือการclearข้อมูลทั้งหมดออกไป
+    data = view_caseorder_status(status ='Approved')
+    for d in data:
+        d= list(d) # แปลงข้อมูล tuple ให้เป็น list
+        del d[0] # ลบID จาก database ออก
+        approved_wlist.insert('','end',values=d)
+
+def newnote(event):
+    GUI3 = Toplevel()
+    GUI3.title('Service Note')
+    GUI3.geometry('500x500')
+
+    selected = approved_wlist.selection()
+    output = approved_wlist.item(selected)
+    tsid = output['values'][0]
+
+    L = ttk.Label(GUI3,text='Service Note (tsid: {})'.format(tsid),font=FONT2)
+    L.pack(pady=10)
+
+    L = ttk.Label(GUI3,text='Date Start',font=FONT2)
+    L.pack(pady=10)
+    v_date_start = StringVar()
+    E1 = ttk.Entry(GUI3,textvariable=v_date_start,font=FONT2)
+    E1.pack()
+
+    L = ttk.Label(GUI3,text='Detail',font=FONT2)
+    L.pack(pady=10)
+    v_detail = StringVar()
+    E2 = ttk.Entry(GUI3,textvariable=v_detail,font=FONT2)
+    E2.pack()
+
+    L = ttk.Label(GUI3,text='Other',font=FONT2)
+    L.pack(pady=10)
+    v_other = StringVar()
+    E3 = ttk.Entry(GUI3,textvariable=v_other,font=FONT2)
+    E3.pack()
+
+    B = ttk.Button(GUI3,text='Save')
+    B.pack(pady=10)
+
+
+    GUI.mainloop()
+
+
+approved_wlist.bind('<Double-1>',newnote)
+
 #Start up 
 update_table()
-
+update_table_approve()
 GUI.mainloop()
